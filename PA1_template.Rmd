@@ -1,25 +1,167 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+author: "Ivo Pinheiro"
+date: "2024-03-16"
+output: html_document
 ---
-
 
 ## Loading and preprocessing the data
 
+- After downloading the file, I read the data in R using read.csv(). 
+- I used str() and unique() on the 3 variables to get a sense of the data in terms of preprocessing at this stage. 
+
+```{r First, echo = TRUE} 
+
+library(tidyverse)
+ActivityData <- read.csv("/Users/andreaaraujo/Downloads/Coursera_Project/activity.csv")
+str(ActivityData)
+unique(ActivityData$steps)
+unique(ActivityData$interval)
+unique(ActivityData$date)
+
+```
 
 
 ## What is mean total number of steps taken per day?
 
+- Here I used dplyr's group_by() and summarise() to calculate the total number of steps per day.
+- I also used dplyr to calculate the mean and median (but I sense something went wrong with the median perhaps?)
+- There's a histogram showing the total number of steps, and then for the mean and median calculations it's a tibble. 
+
+```{r Second, echo = TRUE}
+
+ForHistogram <- ActivityData %>% group_by(date) %>% summarise(TotalSteps = sum(steps))
+
+ggplot(ForHistogram, aes(x = date, y = TotalSteps)) +
+        geom_bar(stat = "identity") +
+        labs(title = "Total Steps Taken Each Day", x = "Date", y = "Total Steps") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+mean(ForHistogram$TotalSteps, na.rm = TRUE)
+mean(ForHistogram$TotalSteps)
+
+ActivityData %>% group_by(date) %>% summarise(MeanSteps = mean(steps, na.rm = TRUE), 
+                                              MedianSteps = median(steps, na.rm = TRUE))
+
+```
 
 
 ## What is the average daily activity pattern?
+
+- Here I used dplyr again to first group by date and then get a mean of steps. I also had to use as.Date() to transform a variable into the right data type. Only then was I able to construct the plot.
+
+```{r Third, echo = TRUE}
+
+AverageSteps <- ActivityData %>% group_by(date) %>% summarise(MeanSteps = mean(steps, na.rm = TRUE))
+
+typeof(AverageSteps$date)
+
+AverageSteps$date <- as.Date(AverageSteps$date)
+
+typeof(AverageSteps$date)
+
+ggplot(AverageSteps, aes(x = date, y = MeanSteps)) +
+        geom_line() +
+        labs(x = "Date", y = "Steps", title = "Time series plot of the average number of steps taken")
+
+```
+
+- To find out the interval with the maximum number of steps I used which.max() after grouping by interval. 
+
+```{r Third.2, echo=TRUE }
+
+IntervalMax <- ActivityData %>% group_by(interval) %>% summarise(AvgSteps = mean(steps, na.rm = TRUE))
+
+IntervalMax[which.max(IntervalMax$AvgSteps), ]
+
+````
 
 
 
 ## Imputing missing values
 
+- First I calculated just how many missing values were present in the data. 
 
+```{r Fourth, echo = TRUE}
+
+sum(!is.na(ActivityData$steps))
+sum(is.na(ActivityData$steps))   
+sum(is.na(ActivityData$date))
+sum(is.na(ActivityData$interval))
+
+sum(is.na(ActivityData))/NROW(ActivityData)*100
+
+
+````
+
+- I decided to assign to every NA the value of the overall mean, as my strategy for imputing missing values.
+
+```{r Fourth.2, echo = TRUE}
+
+
+MyNAData <- ActivityData[is.na(ActivityData$steps), ]
+unique(MyNAData$date)
+
+OverallMean <- mean(ActivityData$steps, na.rm = TRUE)
+
+ActivityData2 <- ActivityData  
+ActivityData2$steps[is.na(ActivityData2$steps)] <- OverallMean
+
+ForHistogram2 <- ActivityData2 %>% group_by(date) %>% summarise(SumSteps = sum(steps))
+
+ggplot(ForHistogram2, aes(x = date, y = SumSteps)) +
+        geom_bar(stat = "identity") +
+        labs(title = "Total Steps Taken Each Day w/ Imputed Values", x = "Date", y = "Total Steps") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+````
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+- I used the lubridate package to answer this question and the patchwork package to build a panel with the two plots. 
+
+```{r Fifth, echo = TRUE}
+
+library(lubridate)
+library(patchwork)
+
+ActivityData$date <- ymd(ActivityData$date)
+
+ActivityData$WhichDays <- ifelse(weekdays(ActivityData$date) %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
+
+WeekendData <- subset(ActivityData, WhichDays == "Weekend")
+WeekdayData <- subset(ActivityData, WhichDays == "Weekday")
+
+head(WeekdayData)
+head(WeekendData)
+
+WeekdayData$interval <- factor(WeekdayData$interval)
+WeekendData$interval <- factor(WeekendData$interval)
+
+
+WeekDayForPlot <- WeekdayData %>% group_by(interval) %>% summarise(MeanSteps = mean(steps, na.rm = TRUE))
+WeekendsForPlot <- WeekendData %>% group_by(interval) %>% summarise(MeanSteps = mean(steps, na.rm = TRUE))
+
+Plot1 <- ggplot(WeekDayForPlot, aes(x = interval, y = MeanSteps, group = "interval")) +
+        geom_line() + 
+        labs(x = NULL, y = "Steps", 
+             title = "Average number of steps per 5-minute interval during the week...") +
+        scale_x_discrete(breaks = seq(0, 2355, by = 200))
+
+Plot2 <- ggplot(WeekendsForPlot, aes(x = interval, y = MeanSteps, group = "interval")) +
+        geom_line() +
+        labs(x = "5-minute intervals", y = "Steps", 
+             title = "... and during weekends") +
+        scale_x_discrete(breaks = seq(0, 2355, by = 200))
+
+PanelPlot <- Plot1 + Plot2 + plot_layout(ncol = 1)
+print(PanelPlot)
+
+````
+
+## In conclusion
+
+- The mean total of steps per day is 10766.19.
+- The 5-minute interval with the maximum number of steps is 835.
+- Some differences between weekdays and weekends are, for example, an earlier slope increase during the week at the 600 interval against around 800 in the weekend. Also, the weekend data has more activity between the 1200-1400 intervals compared the the weekend. Although the weekend has two small peaks after the 2200 interval and the weekday has none, the highest peak seems to happen during the week round the 800 interval at +200 on average. 
+
