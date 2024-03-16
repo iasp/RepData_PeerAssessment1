@@ -142,17 +142,31 @@ WeekendData$interval <- factor(WeekendData$interval)
 WeekDayForPlot <- WeekdayData %>% group_by(interval) %>% summarise(MeanSteps = mean(steps, na.rm = TRUE))
 WeekendsForPlot <- WeekendData %>% group_by(interval) %>% summarise(MeanSteps = mean(steps, na.rm = TRUE))
 
+ggplot(WeekDayForPlot, aes(x = interval, y = MeanSteps, group = "interval")) +
+        geom_line() + 
+        labs(x = NULL, y = "Steps", 
+             title = "Average number of steps per 5-minute interval during the week...") +
+        scale_x_discrete(breaks = seq(0, 2355, by = 200))
+
+ggplot(WeekendsForPlot, aes(x = interval, y = MeanSteps, group = "interval")) +
+        geom_line() +
+        labs(x = "5-minute intervals", y = "Steps", 
+             title = "... and during weekends") +
+        scale_x_discrete(breaks = seq(0, 2355, by = 200))
+
 Plot1 <- ggplot(WeekDayForPlot, aes(x = interval, y = MeanSteps, group = "interval")) +
         geom_line() + 
         labs(x = NULL, y = "Steps", 
              title = "Average number of steps per 5-minute interval during the week...") +
         scale_x_discrete(breaks = seq(0, 2355, by = 200))
 
+
 Plot2 <- ggplot(WeekendsForPlot, aes(x = interval, y = MeanSteps, group = "interval")) +
         geom_line() +
         labs(x = "5-minute intervals", y = "Steps", 
              title = "... and during weekends") +
         scale_x_discrete(breaks = seq(0, 2355, by = 200))
+
 
 PanelPlot <- Plot1 + Plot2 + plot_layout(ncol = 1)
 print(PanelPlot)
